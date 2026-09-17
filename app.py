@@ -100,7 +100,12 @@ def checkout_flow(bot):
         save_bot(bot)
         return {
             "message":
-            "How would you like to receive your order?\n\nDine-in\nTakeaway\nDelivery"
+            "How would you like to receive your order?\n\nDine-in\nTakeaway\nDelivery",
+            "options": [
+                { "label": "Dine-in", "value": "Dine-in" },
+                { "label": "Takeaway", "value": "Takeaway" },
+                { "label": "Delivery", "value": "Delivery" }
+            ]
         }
 
     if customer.get("order_type") == "Delivery" and not customer.get("address"):
@@ -125,13 +130,19 @@ def checkout_flow(bot):
     if customer.get("address"):
         lines.append(f"Address: {customer['address']}")
 
-    lines.append("\nType 'confirm' to place this order, or 'cancel' to go back.")
+    lines.append("\nPlease click 'Confirm Order' to place your order, or 'Cancel Order' to go back.")
 
     session["awaiting_confirmation"] = True
     session["pending_total"] = total
     session.modified = True
 
-    return {"message": "\n".join(lines)}
+    return {
+        "message": "\n".join(lines),
+        "options": [
+            { "label": "Confirm Order", "value": "confirm" },
+            { "label": "Cancel Order", "value": "cancel" }
+        ]
+    }
 
 
 def finalize_order():
@@ -217,10 +228,10 @@ def chat():
     # Handle the confirm/cancel step (was a popup dialog in the Tkinter version)
     if session.get("awaiting_confirmation"):
         low = text.lower().strip()
-        if low in ("confirm", "yes", "y", "place order"):
+        if low in ("confirm", "yes", "y", "place order", "confirm order"):
             message = finalize_order()
             return jsonify({"message": message, "cart": cart_summary()})
-        elif low in ("cancel", "no", "n"):
+        elif low in ("cancel", "no", "n", "cancel order"):
             session["awaiting_confirmation"] = False
             session["pending_total"] = 0
             session.modified = True
@@ -230,7 +241,11 @@ def chat():
             })
         else:
             return jsonify({
-                "message": "Please type 'confirm' to place the order, or 'cancel' to go back.",
+                "message": "Please click 'Confirm Order' to place the order, or 'Cancel Order' to go back.",
+                "options": [
+                    { "label": "Confirm Order", "value": "confirm" },
+                    { "label": "Cancel Order", "value": "cancel" }
+                ],
                 "cart": cart_summary()
             })
 
@@ -243,6 +258,12 @@ def chat():
     save_bot(bot)
 
     action = response.get("action")
+
+    def build_res(res_dict):
+        payload = {"message": res_dict.get("message", ""), "cart": cart_summary()}
+        if "options" in res_dict:
+            payload["options"] = res_dict["options"]
+        return payload
 
     if action == "add_item":
         item = response["item"]
@@ -257,22 +278,22 @@ def chat():
             current_order.append({"item": item, "quantity": qty})
         session["current_order"] = current_order
         session.modified = True
-        return jsonify({"message": response["message"], "cart": cart_summary()})
+        return jsonify(build_res(response))
 
     if action == "remove_item":
         name = response["item"]
         session["current_order"] = [x for x in current_order if x["item"] != name]
         session.modified = True
-        return jsonify({"message": response["message"], "cart": cart_summary()})
+        return jsonify(build_res(response))
 
     if action == "set_customer":
-        return jsonify({"message": response["message"], "cart": cart_summary()})
+        return jsonify(build_res(response))
 
     if action == "checkout":
         result = checkout_flow(bot)
-        return jsonify({"message": result["message"], "cart": cart_summary()})
+        return jsonify(build_res(result))
 
-    return jsonify({"message": response["message"], "cart": cart_summary()})
+    return jsonify(build_res(response))
 
 
 @app.route("/api/cart/view", methods=["POST"])

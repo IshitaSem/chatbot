@@ -189,7 +189,12 @@ class CafeChatbot:
                 "action": "set_customer",
                 "field": "phone",
                 "value": text.strip(),
-                "message": "Will this be Dine-in, Takeaway, or Delivery?"
+                "message": "Will this be Dine-in, Takeaway, or Delivery?",
+                "options": [
+                    { "label": "Dine-in", "value": "Dine-in" },
+                    { "label": "Takeaway", "value": "Takeaway" },
+                    { "label": "Delivery", "value": "Delivery" }
+                ]
             }
 
         if self.state == "order_type":
@@ -200,7 +205,14 @@ class CafeChatbot:
             elif "deliver" in low:
                 value = "Delivery"
             else:
-                return {"message": "Please choose one:\n\nDine-in\nTakeaway\nDelivery"}
+                return {
+                    "message": "Please choose one:\n\nDine-in\nTakeaway\nDelivery",
+                    "options": [
+                        { "label": "Dine-in", "value": "Dine-in" },
+                        { "label": "Takeaway", "value": "Takeaway" },
+                        { "label": "Delivery", "value": "Delivery" }
+                    ]
+                }
 
             customer["order_type"] = value
             if value == "Delivery":

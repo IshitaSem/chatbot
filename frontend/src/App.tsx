@@ -3,11 +3,17 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // ─── TYPES ───────────────────────────────────
 type MsgKind = "text" | "err_unknown" | "err_notfound";
 
+interface OptionItem {
+  label: string;
+  value: string;
+}
+
 interface BotMsg {
   id: number;
   role: "bot";
   kind: MsgKind;
   text?: string;
+  options?: OptionItem[];
   suggestions?: string[];
   timestamp: string;
 }
@@ -114,7 +120,8 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
-function BotTextBubble({ text }: { text: string }) {
+function BotTextBubble({ text, options, onSend }: { text: string; options?: OptionItem[]; onSend?: (t: string) => void }) {
+  const [disabled, setDisabled] = useState(false);
   const parts = text.split(/\*\*(.*?)\*\*/g);
   const formatted = parts.map((p, i) =>
     i % 2 === 1 ? <strong key={i} className="text-[#B83020] font-semibold">{p}</strong> : p
@@ -122,8 +129,35 @@ function BotTextBubble({ text }: { text: string }) {
   return (
     <div className="flex items-end gap-2.5 msg-in">
       <BotAvatar />
-      <div className="bg-white border border-[#EDD8D0] rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm max-w-[85%]">
+      <div className="bg-white border border-[#EDD8D0] rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm max-w-[85%] flex flex-col gap-2.5">
         <p className="text-[13.5px] text-[#3A2018] leading-relaxed whitespace-pre-wrap">{formatted}</p>
+        {options && options.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-[#F0E0D8]">
+            {options.map((opt, idx) => {
+              const lowVal = (opt.value || "").toLowerCase();
+              const lowLabel = (opt.label || "").toLowerCase();
+              let btnClass = "bg-[#4a2c20] hover:bg-[#351f16] text-white";
+              if (lowVal === "confirm" || lowLabel.includes("confirm")) {
+                btnClass = "bg-[#2e7d32] hover:bg-[#1b5e20] text-white";
+              } else if (lowVal === "cancel" || lowLabel.includes("cancel")) {
+                btnClass = "bg-[#c62828] hover:bg-[#b71c1c] text-white";
+              }
+              return (
+                <button
+                  key={idx}
+                  disabled={disabled}
+                  onClick={() => {
+                    setDisabled(true);
+                    onSend?.(opt.value);
+                  }}
+                  className={`text-[12px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${btnClass}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -226,7 +260,7 @@ export default function App() {
       const data = await res.json();
       setTyping(false);
       if (data.message) {
-        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, timestamp: ts() }]);
+        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);
       }
       if (data.cart) {
         setCart(data.cart);
@@ -255,7 +289,7 @@ export default function App() {
       const data = await res.json();
       setTyping(false);
       if (data.message) {
-        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, timestamp: ts() }]);
+        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);
       }
       if (data.cart) {
         setCart(data.cart);
@@ -306,7 +340,7 @@ export default function App() {
       setTyping(false);
 
       if (data.message) {
-        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, timestamp: ts() }]);
+        setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);
       }
       if (data.cart) {
         setCart(data.cart);
@@ -391,7 +425,7 @@ export default function App() {
                   const bot = msg as BotMsg;
                   return (
                     <div key={bot.id} className="flex flex-col items-start gap-1.5">
-                      {bot.kind === "text" && <BotTextBubble text={bot.text ?? ""} />}
+                      {bot.kind === "text" && <BotTextBubble text={bot.text ?? ""} options={bot.options} onSend={sendMessage} />}
                       {bot.kind === "err_unknown" && <ErrorBubble kind={bot.kind} text={bot.text} suggestions={bot.suggestions} onSend={sendMessage} />}
                       <span className="text-[10px] text-[#C0A090] pl-9">{bot.timestamp}</span>
                     </div>

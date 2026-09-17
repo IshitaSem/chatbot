@@ -6,7 +6,7 @@ function timeNow() {
     return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function addBubble(text, sender) {
+function addBubble(text, sender, options = null) {
     const row = document.createElement("div");
     row.className = `bubble-row ${sender}`;
 
@@ -20,13 +20,45 @@ function addBubble(text, sender) {
     const msg = document.createElement("div");
     msg.textContent = text;
 
+    bubble.appendChild(name);
+    bubble.appendChild(msg);
+
+    if (options && options.length > 0) {
+        const btnContainer = document.createElement("div");
+        btnContainer.className = "option-buttons";
+        options.forEach(opt => {
+            const btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.textContent = opt.label;
+
+            const lowVal = (opt.value || "").toLowerCase();
+            const lowLabel = (opt.label || "").toLowerCase();
+
+            if (lowVal === "confirm" || lowLabel.includes("confirm")) {
+                btn.classList.add("btn-confirm");
+            } else if (lowVal === "cancel" || lowLabel.includes("cancel")) {
+                btn.classList.add("btn-cancel");
+            } else {
+                btn.classList.add("btn-general");
+            }
+
+            btn.onclick = () => {
+                const allBtns = btnContainer.querySelectorAll("button");
+                allBtns.forEach(b => {
+                    b.disabled = true;
+                });
+                sendToChat(opt.value);
+            };
+            btnContainer.appendChild(btn);
+        });
+        bubble.appendChild(btnContainer);
+    }
+
     const time = document.createElement("div");
     time.className = "bubble-time";
     time.textContent = timeNow();
-
-    bubble.appendChild(name);
-    bubble.appendChild(msg);
     bubble.appendChild(time);
+
     row.appendChild(bubble);
     chatWindow.appendChild(row);
     chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -62,7 +94,7 @@ async function sendToChat(text, showUserBubble = true) {
         body: JSON.stringify({ message: text })
     });
     const data = await res.json();
-    if (data.message) addBubble(data.message, "bot");
+    if (data.message) addBubble(data.message, "bot", data.options);
     updateCartSidebar(data.cart);
 }
 
