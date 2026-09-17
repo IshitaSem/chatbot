@@ -1,7 +1,8 @@
 {
+  "title": "Cafe Delight - Smart Ordering Assistant",
   "description": "Provides customers with instant answers about menu items, prices, hours, and restaurant info through a user-friendly, responsive chat interface.",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,
