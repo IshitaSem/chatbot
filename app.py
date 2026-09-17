@@ -27,6 +27,8 @@ CORS(
 )
 
 db.init_app(app)
+with app.app_context():
+    db.create_all()
 
 
 def get_state_dict():
@@ -219,18 +221,22 @@ def finalize_order():
                 "Please check your email configuration."
             )
 
-    placed = PlacedOrder(
-        order_number=order_number,
-        name=customer.get("name", ""),
-        phone=customer.get("phone", ""),
-        order_type=order_type,
-        address=customer.get("address"),
-        items_json=json.dumps(current_order),
-        total=total,
-        email_sent=email_ok
-    )
-    db.session.add(placed)
-    db.session.commit()
+    try:
+        placed = PlacedOrder(
+            order_number=order_number,
+            name=customer.get("name", ""),
+            phone=customer.get("phone", ""),
+            order_type=order_type,
+            address=customer.get("address"),
+            items_json=json.dumps(current_order),
+            total=total,
+            email_sent=email_ok
+        )
+        db.session.add(placed)
+        db.session.commit()
+    except Exception as exc:
+        print("Database save error:", exc)
+        db.session.rollback()
 
     # reset session state for next order
     session["current_order"] = []

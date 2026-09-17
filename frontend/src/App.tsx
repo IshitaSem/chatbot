@@ -360,7 +360,7 @@ export default function App() {
         id: uid(),
         role: "bot",
         kind: "err_unknown",
-        text: "Unable to reach Cafe Delight backend server. Please verify python app.py is running on http://127.0.0.1:5000.",
+        text: "Unable to reach Cafe Delight backend server. Please verify backend service is running.",
         timestamp: ts(),
         suggestions: ["View Menu", "Show cart"]
       }]);
