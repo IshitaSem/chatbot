@@ -34,6 +34,8 @@ interface CartData {
 }
 
 // ─── DATA ─────────────────────────────────────
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 const QUICK_ACTIONS = [
   { emoji: "🍽️", label: "View Menu", q: "Show me the full menu" },
   { emoji: "💰", label: "Check Prices", q: "What are your prices?" },
@@ -202,7 +204,7 @@ export default function App() {
 
   // Initial cart synchronization with Flask backend session
   useEffect(() => {
-    fetch('/api/cart/summary', { credentials: 'same-origin' })
+    fetch(`${API_URL}/api/cart/summary`, { credentials: 'include' })
       .then(res => res.json())
       .then((data: CartData) => {
         if (data && typeof data.total === 'number') {
@@ -216,10 +218,10 @@ export default function App() {
     if (typing) return;
     setTyping(true);
     try {
-      const res = await fetch('/api/cart/view', {
+      const res = await fetch(`${API_URL}/api/cart/view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'include'
       });
       const data = await res.json();
       setTyping(false);
@@ -245,10 +247,10 @@ export default function App() {
     if (typing) return;
     setTyping(true);
     try {
-      const res = await fetch('/api/cart/clear', {
+      const res = await fetch(`${API_URL}/api/cart/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'include'
       });
       const data = await res.json();
       setTyping(false);
@@ -289,11 +291,11 @@ export default function App() {
     setTyping(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
-        credentials: 'same-origin'
+        credentials: 'include'
       });
 
       if (!res.ok) {
