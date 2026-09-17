@@ -3,6 +3,8 @@ from datetime import datetime
 import random
 import json
 
+from flask_cors import CORS
+
 from chatbot import CafeChatbot
 from menu import MENU
 from email_service import send_order_email
@@ -12,6 +14,17 @@ app = Flask(__name__)
 app.secret_key = "change_this_to_something_random"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///cafe.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Cross-origin session cookie configuration for Vercel -> PythonAnywhere
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SECURE"] = True
+
+# Enable CORS with credentials for production frontend origin
+CORS(
+    app,
+    resources={r"/api/*": {"origins": ["https://cafedelight-sandy.vercel.app"]}},
+    supports_credentials=True
+)
 
 db.init_app(app)
 
