@@ -126,19 +126,45 @@ def finalize_order():
     customer = session.get("customer", {})
     total = session.get("pending_total", 0)
     order_number = session["order_number"]
+    order_type = customer.get("order_type", "")
 
-    email_ok = send_order_email(
-        order_number=order_number,
-        customer=customer,
-        items=current_order,
-        total=total
-    )
+    if order_type == "Dine-in":
+        email_ok = False
+        message = (
+            "ORDER CONFIRMED!\n\n"
+            f"Order Number: #{order_number}\n"
+            f"Total: Rs. {total}\n\n"
+            "Thank you for ordering from Cafe Delight!"
+        )
+    else:
+        email_ok = send_order_email(
+            order_number=order_number,
+            customer=customer,
+            items=current_order,
+            total=total
+        )
+        if email_ok:
+            message = (
+                "ORDER CONFIRMED!\n\n"
+                f"Order Number: #{order_number}\n"
+                f"Total: Rs. {total}\n\n"
+                "The cafe has received your order notification by email.\n\n"
+                "Thank you for ordering from Cafe Delight!"
+            )
+        else:
+            message = (
+                "ORDER CONFIRMED!\n\n"
+                f"Order Number: #{order_number}\n"
+                f"Total: Rs. {total}\n\n"
+                "The order was completed, but the email notification could not be sent.\n\n"
+                "Please check your email configuration."
+            )
 
     placed = PlacedOrder(
         order_number=order_number,
         name=customer.get("name", ""),
         phone=customer.get("phone", ""),
-        order_type=customer.get("order_type", ""),
+        order_type=order_type,
         address=customer.get("address"),
         items_json=json.dumps(current_order),
         total=total,
@@ -146,23 +172,6 @@ def finalize_order():
     )
     db.session.add(placed)
     db.session.commit()
-
-    if email_ok:
-        message = (
-            "ORDER CONFIRMED!\n\n"
-            f"Order Number: #{order_number}\n"
-            f"Total: Rs. {total}\n\n"
-            "The cafe has received your order notification by email.\n\n"
-            "Thank you for ordering from Cafe Delight!"
-        )
-    else:
-        message = (
-            "ORDER CONFIRMED!\n\n"
-            f"Order Number: #{order_number}\n"
-            f"Total: Rs. {total}\n\n"
-            "The order was completed, but the email notification could not be sent.\n\n"
-            "Please check your email configuration."
-        )
 
     # reset session state for next order
     session["current_order"] = []
@@ -180,10 +189,7 @@ def finalize_order():
 @app.route("/")
 def index():
     get_state()
-    return jsonify({
-        "status": "Cafe Delight API Server Running",
-        "message": "Please access the frontend UI via Vite at http://localhost:8443"
-    })
+    return render_template("index.html")
 
 
 
