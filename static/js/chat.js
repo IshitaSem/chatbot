@@ -85,15 +85,18 @@ function updateCartSidebar(cart) {
     totalAmount.textContent = `Rs. ${cart.total}`;
 }
 
+let appState = null;
+
 async function sendToChat(text, showUserBubble = true) {
     if (showUserBubble) addBubble(text, "user");
 
     const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, state: appState })
     });
     const data = await res.json();
+    if (data.state) appState = data.state;
     if (data.message) addBubble(data.message, "bot", data.options);
     updateCartSidebar(data.cart);
 }
@@ -113,16 +116,26 @@ document.getElementById("btn-menu").onclick = () => sendToChat("show menu");
 document.getElementById("btn-order").onclick = () => sendToChat("I want to order");
 
 document.getElementById("btn-cart").onclick = async () => {
-    const res = await fetch("/api/cart/view", { method: "POST" });
+    const res = await fetch("/api/cart/view", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: appState })
+    });
     const data = await res.json();
+    if (data.state) appState = data.state;
     addBubble(data.message, "bot");
     updateCartSidebar(data.cart);
 };
 
 document.getElementById("btn-clear").onclick = async () => {
     if (!confirm("Are you sure you want to clear your current order?")) return;
-    const res = await fetch("/api/cart/clear", { method: "POST" });
+    const res = await fetch("/api/cart/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: appState })
+    });
     const data = await res.json();
+    if (data.state) appState = data.state;
     addBubble(data.message, "bot");
     updateCartSidebar(data.cart);
 };

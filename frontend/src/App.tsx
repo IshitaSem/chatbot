@@ -225,6 +225,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [cart, setCart] = useState<CartData>({ lines: [], total: 0, total_items: 0 });
+  const appStateRef = useRef<any>(null);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -240,9 +241,12 @@ export default function App() {
   useEffect(() => {
     fetch(`${API_URL}/api/cart/summary`, { credentials: 'include' })
       .then(res => res.json())
-      .then((data: CartData) => {
+      .then((data: any) => {
         if (data && typeof data.total === 'number') {
           setCart(data);
+        }
+        if (data && data.state) {
+          appStateRef.current = data.state;
         }
       })
       .catch(err => console.warn("Initial cart summary fetch failed:", err));
@@ -255,10 +259,12 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/cart/view`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: appStateRef.current }),
         credentials: 'include'
       });
       const data = await res.json();
       setTyping(false);
+      if (data.state) appStateRef.current = data.state;
       if (data.message) {
         setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);
       }
@@ -284,10 +290,12 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/cart/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: appStateRef.current }),
         credentials: 'include'
       });
       const data = await res.json();
       setTyping(false);
+      if (data.state) appStateRef.current = data.state;
       if (data.message) {
         setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);
       }
@@ -328,7 +336,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, state: appStateRef.current }),
         credentials: 'include'
       });
 
@@ -338,6 +346,7 @@ export default function App() {
 
       const data = await res.json();
       setTyping(false);
+      if (data.state) appStateRef.current = data.state;
 
       if (data.message) {
         setMessages(prev => [...prev, { id: uid(), role: "bot", kind: "text", text: data.message, options: data.options, timestamp: ts() }]);

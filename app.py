@@ -29,7 +29,42 @@ CORS(
 db.init_app(app)
 
 
+def get_state_dict():
+    return {
+        "current_order": session.get("current_order", []),
+        "customer": session.get("customer", {}),
+        "bot_state": session.get("bot_state"),
+        "pending_item": session.get("pending_item"),
+        "awaiting_confirmation": session.get("awaiting_confirmation", False),
+        "pending_total": session.get("pending_total", 0),
+        "order_number": session.get("order_number", random.randint(1000, 9999))
+    }
+
+
+def load_state_from_payload():
+    req_json = request.get_json(silent=True) or {}
+    payload = req_json.get("state")
+    if not isinstance(payload, dict):
+        return
+    if "current_order" in payload and isinstance(payload["current_order"], list):
+        session["current_order"] = payload["current_order"]
+    if "customer" in payload and isinstance(payload["customer"], dict):
+        session["customer"] = payload["customer"]
+    if "bot_state" in payload:
+        session["bot_state"] = payload["bot_state"]
+    if "pending_item" in payload:
+        session["pending_item"] = payload["pending_item"]
+    if "awaiting_confirmation" in payload:
+        session["awaiting_confirmation"] = payload["awaiting_confirmation"]
+    if "pending_total" in payload:
+        session["pending_total"] = payload["pending_total"]
+    if "order_number" in payload and payload["order_number"]:
+        session["order_number"] = payload["order_number"]
+    session.modified = True
+
+
 def get_state():
+    load_state_from_payload()
     if "current_order" not in session:
         session["current_order"] = []
     if "customer" not in session:
@@ -222,32 +257,40 @@ def chat():
     get_state()
     text = request.json.get("message", "").strip()
 
+    def build_res(res_dict):
+        payload = {
+            "message": res_dict.get("message", ""),
+            "cart": cart_summary(),
+            "state": get_state_dict()
+        }
+        if "options" in res_dict:
+            payload["options"] = res_dict["options"]
+        return payload
+
     if not text:
-        return jsonify({"message": "", "cart": cart_summary()})
+        return jsonify(build_res({"message": ""}))
 
     # Handle the confirm/cancel step (was a popup dialog in the Tkinter version)
     if session.get("awaiting_confirmation"):
         low = text.lower().strip()
         if low in ("confirm", "yes", "y", "place order", "confirm order"):
             message = finalize_order()
-            return jsonify({"message": message, "cart": cart_summary()})
+            return jsonify(build_res({"message": message}))
         elif low in ("cancel", "no", "n", "cancel order"):
             session["awaiting_confirmation"] = False
             session["pending_total"] = 0
             session.modified = True
-            return jsonify({
-                "message": "No problem.\n\nYour order has not been placed.",
-                "cart": cart_summary()
-            })
+            return jsonify(build_res({
+                "message": "No problem.\n\nYour order has not been placed."
+            }))
         else:
-            return jsonify({
+            return jsonify(build_res({
                 "message": "Please click 'Confirm Order' to place the order, or 'Cancel Order' to go back.",
                 "options": [
                     { "label": "Confirm Order", "value": "confirm" },
                     { "label": "Cancel Order", "value": "cancel" }
-                ],
-                "cart": cart_summary()
-            })
+                ]
+            }))
 
     bot = get_bot()
     current_order = session.get("current_order", [])
@@ -258,12 +301,6 @@ def chat():
     save_bot(bot)
 
     action = response.get("action")
-
-    def build_res(res_dict):
-        payload = {"message": res_dict.get("message", ""), "cart": cart_summary()}
-        if "options" in res_dict:
-            payload["options"] = res_dict["options"]
-        return payload
 
     if action == "add_item":
         item = response["item"]
@@ -303,7 +340,8 @@ def view_cart():
     if not summary["lines"]:
         return jsonify({
             "message": "Your cart is currently empty.\n\nWould you like to see our menu?",
-            "cart": summary
+            "cart": summary,
+            "state": get_state_dict()
         })
 
     lines = ["YOUR CURRENT ORDER", ""]
@@ -311,7 +349,7 @@ def view_cart():
         lines.append(f"{line['quantity']} x {line['item']} = Rs. {line['amount']}")
     lines.append(f"\nTOTAL: Rs. {summary['total']}")
 
-    return jsonify({"message": "\n".join(lines), "cart": summary})
+    return jsonify({"message": "\n".join(lines), "cart": summary, "state": get_state_dict()})
 
 
 @app.route("/api/cart/clear", methods=["POST"])
@@ -327,14 +365,17 @@ def clear_cart():
 
     return jsonify({
         "message": "Your order has been cleared.\n\nWhat would you like to have?",
-        "cart": cart_summary()
+        "cart": cart_summary(),
+        "state": get_state_dict()
     })
 
 
 @app.route("/api/cart/summary")
 def cart_summary_route():
     get_state()
-    return jsonify(cart_summary())
+    res = cart_summary()
+    res["state"] = get_state_dict()
+    return jsonify(res)
 
 
 if __name__ == "__main__":

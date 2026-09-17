@@ -308,6 +308,14 @@ class CafeChatbot:
                 "• Monday – Sunday: 10:00 AM – 10:00 PM"
             }
 
+        # Standalone number when no item/quantity state is active
+        if re.fullmatch(r"\d+", low):
+            return {
+                "message":
+                "Please tell me which item you'd like to order first.\n\n"
+                "For example: '1 Chicken Burger', 'Cold Coffee', or 'Show me the menu'."
+            }
+
         if any(w in low for w in [
             "opening hour", "opening hours", "business hour", "business hours",
             "restaurant hour", "restaurant hours", "what time do you open",
