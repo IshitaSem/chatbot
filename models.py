@@ -14,6 +14,7 @@ class PlacedOrder(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     order_type = db.Column(db.String(20), nullable=False)
     address = db.Column(db.String(300), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
     items_json = db.Column(db.Text, nullable=False)
     total = db.Column(db.Integer, nullable=False)
     email_sent = db.Column(db.Boolean, default=False)

@@ -1,3 +1,10 @@
+import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime
 import random
@@ -26,9 +33,20 @@ CORS(
     supports_credentials=True
 )
 
+from sqlalchemy import text
+
 db.init_app(app)
 with app.app_context():
     db.create_all()
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(orders)"))
+            cols = [row[1] for row in result.fetchall()]
+            if cols and "email" not in cols:
+                conn.execute(text("ALTER TABLE orders ADD COLUMN email VARCHAR(120)"))
+                conn.commit()
+    except Exception as exc:
+        print("Note on orders table schema:", exc)
 
 
 def get_state_dict():
@@ -150,6 +168,11 @@ def checkout_flow(bot):
         save_bot(bot)
         return {"message": "Please provide your complete delivery address."}
 
+    if customer.get("order_type") in ("Takeaway", "Delivery") and not customer.get("email"):
+        bot.state = "email"
+        save_bot(bot)
+        return {"message": "What email address should we send your order confirmation to?"}
+
     # All details collected -> build summary, wait for confirm/cancel
     order_number = session["order_number"]
     lines = [f"ORDER #{order_number}", "", "ITEMS:"]
@@ -166,6 +189,8 @@ def checkout_flow(bot):
     ]
     if customer.get("address"):
         lines.append(f"Address: {customer['address']}")
+    if customer.get("email"):
+        lines.append(f"Email: {customer['email']}")
 
     lines.append("\nPlease click 'Confirm Order' to place your order, or 'Cancel Order' to go back.")
 
@@ -188,6 +213,7 @@ def finalize_order():
     total = session.get("pending_total", 0)
     order_number = session["order_number"]
     order_type = customer.get("order_type", "")
+    customer_email = customer.get("email", "").strip()
 
     if order_type == "Dine-in":
         email_ok = False
@@ -209,7 +235,7 @@ def finalize_order():
                 "ORDER CONFIRMED!\n\n"
                 f"Order Number: #{order_number}\n"
                 f"Total: Rs. {total}\n\n"
-                "The cafe has received your order notification by email.\n\n"
+                f"A confirmation email has been sent to {customer_email}.\n\n"
                 "Thank you for ordering from Cafe Delight!"
             )
         else:
@@ -217,8 +243,9 @@ def finalize_order():
                 "ORDER CONFIRMED!\n\n"
                 f"Order Number: #{order_number}\n"
                 f"Total: Rs. {total}\n\n"
-                "The order was completed, but the email notification could not be sent.\n\n"
-                "Please check your email configuration."
+                f"Note: Your order was placed, but the confirmation email could not be sent to {customer_email or 'your email'}. "
+                "Please verify your email or contact the cafe staff.\n\n"
+                "Thank you for ordering from Cafe Delight!"
             )
 
     try:
@@ -228,6 +255,7 @@ def finalize_order():
             phone=customer.get("phone", ""),
             order_type=order_type,
             address=customer.get("address"),
+            email=customer.get("email"),
             items_json=json.dumps(current_order),
             total=total,
             email_sent=email_ok

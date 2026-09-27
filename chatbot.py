@@ -113,9 +113,127 @@ class CafeChatbot:
             "menu", "price", "prices", "cost", "how much", "rate", "hours", "timing",
             "timings", "open", "close", "schedule", "hello", "hi", "hey", "namaste",
             "popular", "special", "recommend", "best", "veg", "vegetarian", "checkout",
-            "order", "buy", "cancel", "thanks", "thank", "food", "what", "show"
+            "order", "buy", "cancel", "thanks", "thank", "food", "what", "show",
+            "under", "below", "cheap", "cheapest", "budget", "less"
         ]
         return any(w in low for w in keywords)
+
+    def parse_price_query(self, text):
+        low = text.lower()
+
+        price_pattern = re.compile(
+            r'(?:(?:under|below|less than|within|up to|at most|cheaper than|max|maximum of)\s*(?:of\s*)?(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:rs\.?|inr|rupees)?)|'
+            r'(?:(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:rs\.?|inr|rupees)?\s*(?:or less|and under))|'
+            r'(?:(?:buy|get|have|eat|available|anything|something|food|items?)\s+(?:for|within)\s+(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:rs\.?|inr|rupees)?(?!\s*(?:people|persons|guests|tables?))\b)|'
+            r'(?:\b(?:budget\s+(?:of|is)?)\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\b)|'
+            r'(?:^(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d+)?)\s*(?:rs\.?|inr|rupees)?\s*(?:budget|limit)$)',
+            re.IGNORECASE
+        )
+
+        m = price_pattern.search(low)
+        max_price = None
+        if m:
+            for g in m.groups():
+                if g is not None:
+                    try:
+                        max_price = float(g)
+                        break
+                    except ValueError:
+                        pass
+
+        cat_match = None
+        for category in self.menu:
+            cat_l = category.lower()
+            cat_sing = cat_l[:-1] if cat_l.endswith("s") else cat_l
+            if re.search(r"\b" + re.escape(cat_l) + r"\b", low) or re.search(r"\b" + re.escape(cat_sing) + r"\b", low):
+                cat_match = category
+                break
+
+        is_cheapest = any(w in low for w in [
+            "cheapest", "lowest price", "least expensive", "lowest priced", "most affordable",
+            "cheap food", "cheap item", "something cheap", "anything cheap"
+        ])
+
+        return max_price, cat_match, is_cheapest
+
+    def handle_price_query(self, max_price, category=None):
+        if category:
+            target_items = [(name, data, category) for name, data in self.menu[category].items()]
+        else:
+            target_items = [(name, data, cat) for cat, foods in self.menu.items() for name, data in foods.items()]
+
+        matching = [it for it in target_items if it[1]["price"] <= max_price]
+        matching.sort(key=lambda x: (x[1]["price"], x[0]))
+
+        price_disp = f"₹{int(max_price) if max_price.is_integer() else max_price}"
+
+        if matching:
+            if category:
+                cat_desc = category.lower() if category.lower().endswith("s") else f"{category.lower()} options"
+                header = f"Here are our {cat_desc} under {price_disp}:"
+            else:
+                header = f"Here are some options under {price_disp}:"
+            lines = [header]
+            for name, data, cat in matching:
+                lines.append(f"• {name} — Rs. {data['price']}\n  {data['description']}")
+            return "\n\n".join(lines).strip()
+        else:
+            min_price = min(it[1]["price"] for it in target_items)
+            cheapest_items = [it for it in target_items if it[1]["price"] == min_price]
+            if len(cheapest_items) == 1:
+                cheapest_text = f"{cheapest_items[0][0]}"
+            elif len(cheapest_items) == 2:
+                cheapest_text = f"{cheapest_items[0][0]} and {cheapest_items[1][0]}"
+            else:
+                cheapest_text = ", ".join(x[0] for x in cheapest_items[:-1]) + f", and {cheapest_items[-1][0]}"
+
+            if category:
+                cat_desc = category.lower() if category.lower().endswith("s") else f"{category.lower()} options"
+                phrase = f"Our {category.lower()} start from Rs. {min_price} with {cheapest_text}." if len(cheapest_items) == 1 else f"Our {category.lower()} start from Rs. {min_price} with options like {cheapest_text}."
+                msg = f"We don't currently have any {cat_desc} under {price_disp}.\n\n{phrase}"
+            else:
+                phrase = f"Our menu starts from Rs. {min_price} with {cheapest_text}." if len(cheapest_items) == 1 else f"Our menu starts from Rs. {min_price} with options like {cheapest_text}."
+                msg = f"We don't currently have any items under {price_disp}.\n\n{phrase}"
+
+            lines = [msg, "Here are our most affordable options:"]
+            sorted_all = sorted(target_items, key=lambda x: (x[1]["price"], x[0]))
+            seen = set()
+            count = 0
+            for it in sorted_all:
+                if it[0] not in seen and count < 3:
+                    seen.add(it[0])
+                    lines.append(f"• {it[0]} — Rs. {it[1]['price']}\n  {it[1]['description']}")
+                    count += 1
+            return "\n\n".join(lines).strip()
+
+    def handle_cheapest_query(self, category=None):
+        if category:
+            target_items = [(name, data, category) for name, data in self.menu[category].items()]
+        else:
+            target_items = [(name, data, cat) for cat, foods in self.menu.items() for name, data in foods.items()]
+
+        min_price = min(it[1]["price"] for it in target_items)
+        cheapest = [it for it in target_items if it[1]["price"] == min_price]
+
+        if category:
+            cat_name = category.lower().rstrip("s") if category.lower().endswith("s") else category.lower()
+            if len(cheapest) == 1:
+                it = cheapest[0]
+                return f"The cheapest {cat_name} is {it[0]} at Rs. {it[1]['price']}.\n\n{it[1]['description']}"
+            elif len(cheapest) == 2:
+                return f"Our lowest-priced {category.lower()} are {cheapest[0][0]} and {cheapest[1][0]} at Rs. {min_price} each."
+            else:
+                names = ", ".join(x[0] for x in cheapest[:-1]) + f", and {cheapest[-1][0]}"
+                return f"Our lowest-priced {category.lower()} are {names} at Rs. {min_price} each."
+        else:
+            if len(cheapest) == 1:
+                it = cheapest[0]
+                return f"The cheapest item on our menu is {it[0]} at Rs. {it[1]['price']}.\n\nCategory: {it[2]}\n{it[1]['description']}"
+            elif len(cheapest) == 2:
+                return f"Our lowest-priced items are {cheapest[0][0]} and {cheapest[1][0]} at Rs. {min_price} each."
+            else:
+                names = ", ".join(x[0] for x in cheapest[:-1]) + f", and {cheapest[-1][0]}"
+                return f"Our lowest-priced items are {names} at Rs. {min_price} each."
 
     def process(self, text, current_order, customer):
         low = text.lower().strip()
@@ -223,13 +341,24 @@ class CafeChatbot:
                     "value": value,
                     "message": "Delivery selected.\n\nPlease enter your complete delivery address."
                 }
+            elif value == "Takeaway":
+                self.state = "email"
+                return {
+                    "action": "set_customer",
+                    "field": "order_type",
+                    "value": value,
+                    "message": "Takeaway selected.\n\nWhat email address should we send your order confirmation to?"
+                }
 
             self.state = None
             return {
                 "action": "set_customer",
                 "field": "order_type",
                 "value": value,
-                "message": f"{value} selected.\n\nSay 'checkout' whenever you are ready."
+                "message": f"{value} selected.\n\nSay 'checkout' whenever you are ready.",
+                "options": [
+                    { "label": "🛒 Checkout Now", "value": "checkout" }
+                ]
             }
 
         if self.state == "address":
@@ -237,12 +366,33 @@ class CafeChatbot:
                 return {"message": "Please provide a complete delivery address."}
 
             customer["address"] = text.strip()
-            self.state = None
+            self.state = "email"
             return {
                 "action": "set_customer",
                 "field": "address",
                 "value": text.strip(),
-                "message": "Delivery address saved successfully.\n\nSay 'checkout' when you are ready to place the order."
+                "message": "Delivery address saved successfully.\n\nWhat email address should we send your order confirmation to?"
+            }
+
+        if self.state == "email":
+            clean_email = text.strip()
+            if low in ("cancel", "cancel order", "stop"):
+                self.state = None
+                return {"message": "Order checkout cancelled.\n\nWhat else can I help you with?"}
+
+            if not re.fullmatch(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$", clean_email):
+                return {"message": "Please enter a valid email address (e.g., name@example.com)."}
+
+            customer["email"] = clean_email
+            self.state = None
+            return {
+                "action": "set_customer",
+                "field": "email",
+                "value": clean_email,
+                "message": "Email address saved successfully.\n\nSay 'checkout' when you are ready to place the order.",
+                "options": [
+                    { "label": "🛒 Checkout Now", "value": "checkout" }
+                ]
             }
 
         # ── INTENTS & ACTIONS ──
@@ -260,6 +410,13 @@ class CafeChatbot:
             if current_order:
                 return {"message": "Great! Say 'checkout' whenever you are ready to place your order."}
             return {"message": "Your cart is currently empty."}
+
+        # Price Limit & Cheapest Item Queries
+        max_price, category_filter, is_cheapest = self.parse_price_query(low)
+        if max_price is not None:
+            return {"message": self.handle_price_query(max_price, category_filter)}
+        if is_cheapest:
+            return {"message": self.handle_cheapest_query(category_filter)}
 
         # 3. Direct Order Trigger (e.g. "I want to order", "let's order")
         if any(w in low for w in [

@@ -55,7 +55,7 @@ const CHIPS = [
   { label: "Are you open today?", q: "Are you open today?" },
   { label: "Show me drinks", q: "Show me drinks" },
   { label: "Vegetarian options", q: "Do you have vegetarian options?" },
-  { label: "Under ₹200", q: "Show me the full menu" },
+  { label: "Under ₹200", q: "Show me items under 200" },
 ]
 
 // ─── HELPERS ──────────────────────────────────
@@ -194,35 +194,28 @@ function BotTextBubble({
           </p>
         </div>
         {options && options.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 ml-0.5">
-            {options.map((opt, i) => (
-              <button
-                key={i}
-                onClick={() => onSend && onSend(opt.value)}
-                className="text-[12px] font-semibold px-3 py-1.5 rounded-xl border transition-all cursor-pointer shadow-sm active:scale-95"
-                style={{
-                  background:
-                    opt.value.toLowerCase() === "confirm"
-                      ? "#16A34A"
-                      : opt.value.toLowerCase() === "cancel"
-                        ? "#DC2626"
-                        : "#FFFFFF",
-                  color:
-                    opt.value.toLowerCase() === "confirm" ||
-                    opt.value.toLowerCase() === "cancel"
-                      ? "#FFFFFF"
-                      : "#C84040",
-                  borderColor:
-                    opt.value.toLowerCase() === "confirm"
-                      ? "#16A34A"
-                      : opt.value.toLowerCase() === "cancel"
-                        ? "#DC2626"
-                        : "#F0C8C0",
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5 ml-0.5 mt-0.5">
+            {options.map((opt, i) => {
+              const val = opt.value.toLowerCase()
+              const isConfirm = val === "confirm"
+              const isCancel = val === "cancel"
+              const isCheckout = val === "checkout"
+              let btnClass = "chat-opt-btn "
+              if (isConfirm) btnClass += "chat-opt-confirm"
+              else if (isCancel) btnClass += "chat-opt-cancel"
+              else if (isCheckout) btnClass += "chat-opt-checkout"
+              else btnClass += "chat-opt-default"
+
+              return (
+                <button
+                  key={i}
+                  onClick={() => onSend && onSend(opt.value)}
+                  className={btnClass}
+                >
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
@@ -583,7 +576,7 @@ export default function App() {
             <button
               key={`${cart.total_items}-${cart.total}`}
               onClick={handleViewCart}
-              className="flex items-center gap-1 bg-white/20 hover:bg-white/30 hover:scale-[1.04] active:scale-[0.94] rounded-full px-2.5 py-1.5 cursor-pointer transition-all duration-200 ease-out cart-pulse shadow-sm"
+              className="cart-badge-btn flex items-center gap-1.5 rounded-full px-3 py-1.5 cursor-pointer cart-pulse shadow-sm"
               title="View Cart"
             >
               <span className="text-white text-[11px] font-bold">
@@ -594,13 +587,13 @@ export default function App() {
           {/* Controls */}
           <div className="flex items-center gap-1.5 ml-1">
             <button
-              className="w-7 h-7 rounded-lg bg-white/15 hover:bg-white/30 hover:scale-105 active:scale-90 active:translate-y-0.5 flex items-center justify-center text-white cursor-pointer transition-all duration-200 ease-out"
+              className="header-ctrl-btn w-7 h-7 rounded-lg bg-white/15 hover:bg-white/30 flex items-center justify-center text-white cursor-pointer"
               title="Minimize"
             >
               <MinIcon />
             </button>
             <button
-              className="w-7 h-7 rounded-lg bg-white/15 hover:bg-red-700/85 hover:text-white hover:scale-105 active:scale-90 active:translate-y-0.5 hover:shadow-sm flex items-center justify-center text-white cursor-pointer transition-all duration-200 ease-out"
+              className="header-ctrl-btn w-7 h-7 rounded-lg bg-white/15 hover:bg-red-600/90 flex items-center justify-center text-white cursor-pointer"
               title="Close"
             >
               <XIcon />

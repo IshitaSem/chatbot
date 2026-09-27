@@ -1,11 +1,18 @@
-# EMAIL CONFIGURATION
-# For Gmail, use a Google App Password rather than your normal Gmail password.
-# 1. Turn on 2-Step Verification on the sender Google account.
-# 2. Create a NEW Google App Password (rotate the old one since it was shared in chat).
-# 3. Put the 16-character App Password below.
+import os
 
-SENDER_EMAIL = "anantmann157@gmail.com"
-SENDER_PASSWORD = "yxaysuytcdvvzsom"
-RECEIVER_EMAIL = "kgaganjot08@gmail.com"
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465
+try:
+    from dotenv import load_dotenv
+    # Load environment variables from .env file if present
+    load_dotenv()
+except ImportError:
+    pass
+
+# SENDER & SMTP CONFIGURATION
+# Credentials must be provided via environment variables or a local .env file.
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL") or os.environ.get("SMTP_SENDER_EMAIL", "")
+SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD") or os.environ.get("SMTP_SENDER_PASSWORD", "")
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
+
+# Optional receiver/cafe notification email (if cafe staff also wants a copy)
+RECEIVER_EMAIL = os.environ.get("RECEIVER_EMAIL") or os.environ.get("CAFE_NOTIFICATION_EMAIL", "")

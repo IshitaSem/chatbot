@@ -539,6 +539,19 @@ body {
     box-shadow: 0 1px 4px rgba(198, 40, 40, 0.3);
 }
 
+.option-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 4.5px var(--color-crema) !important;
+}
+
+.option-btn.confirm-btn:focus-visible {
+    box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 4.5px var(--color-success) !important;
+}
+
+.option-btn.cancel-btn:focus-visible {
+    box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 4.5px var(--color-danger) !important;
+}
+
 /* ==========================================================================
    2. SEND BUTTON & 3. INPUT BOX - FUTURISTIC & MODERN FEEL
    ========================================================================== */
